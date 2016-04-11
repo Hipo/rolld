@@ -84,7 +84,6 @@ state = 'IDLE'
 #                 print "conn ", conn
 #         print ">>>>", i.pid
 
-
 class Actions(object):
 
     @classmethod
@@ -229,6 +228,27 @@ def handler(signum, frame):
     ioloop.add_timeout(time.time() + 1, restart_all)
 
 signal.signal(signal.SIGHUP, handler)
+
+import atexit
+
+@atexit.register
+def at_exit():
+    """
+    ensure we dont have any child left around
+    """
+    global processes
+    for i in processes:
+        proc = psutil.Process(i.pid)
+        print "killing proc", proc, i.pid
+        proc.kill()
+
+def term_handler(signum, frame):
+    at_exit()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, term_handler)
+signal.signal(signal.SIGINT, term_handler)
+
 
 def main():
     if not len(sys.argv) > 1:
