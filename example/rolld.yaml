@@ -1,0 +1,21 @@
+
+
+app-servers:
+  cmd: '../env/bin/python app.py {numproc}'
+  directory: '/Users/aybarsbadur/projects/rolld/example'
+  environment: ''
+  stderr: 'logs/tornado-{numproc}.err'
+  stdout: 'logs/tornado-{numproc}.log'
+
+  workset:
+    - numprocs: [8001, 8002, 8003, 8004]
+    - numprocs: [8501, 8502, 8503, 8504]
+
+  smoke_test:
+    - check_all_http_ports: numprocs
+
+  after_start:
+    - replace_file: [numprocs, 'example/nginx-tornado.conf.templ', 'example/nginx-tornado.conf']
+    - run_proc: ps auxw| grep nginx | grep master | grep -v grep | awk '{print $2}' | xargs sudo kill -HUP
+
+
