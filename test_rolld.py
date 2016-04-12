@@ -30,7 +30,7 @@ def periodic_callback(proc_pid):
 
         os.kill(rolld_proc.pid, signal.SIGTERM)
         os.kill(nginx_proc.pid, signal.SIGTERM)
-        
+
         IOLoop.instance().add_timeout(time.time() + 5, partial(sys.exit, 1))
 
 
