@@ -1,77 +1,72 @@
+rolld
+=====
 
-gracefully restarting is a delicate business, rolld tries to help restarting your processes without losing a single request.
+Gracefully restarting processes is a delicate business. `rolld` helps you restart any group of processes without losing a single request. This is especially useful during no-downtime deployments and in continuous integration implementations.
 
 
-What
---------
-rolld is a simple process supervisor, that manages and restarts your processes.
+How Does It Work?
+-----------------
 
-How
---------
+There are different tactics when restarting a process group. `rolld` does the following:
 
-There are different tactics when restarting a process group. rolld does the following,
+* Starts a new set of processes in different ports
+* Runs smoke tests (eg. send predefined requests to each port)
+* Updates your load balancer configuration and reloads it
+* Waits until there is no connection on the old set of processes
+* Kills old processes
 
-i. start a new set of processes in different ports
-ii. run some smoke tests - eg. send request to each port.
-iii. update your loadbalancers config, reload your loadbalancer
-iv. wait until there is no connection on the old set of processes
-v. kill old ones.
+`rolld` uses a simple yml file for configuration:
 
-rolld uses a simple yml file for configuration
+    app-servers:
+      cmd: '../env/bin/python app.py {numproc}'
+      directory: '/Users/aybarsbadur/projects/rolld/example'
+      stderr: 'logs/tornado-{numproc}.err'
+      stdout: 'logs/tornado-{numproc}.log'
 
-```
-app-servers:
-  cmd: '../env/bin/python app.py {numproc}'
-  directory: '/Users/aybarsbadur/projects/rolld/example'
-  stderr: 'logs/tornado-{numproc}.err'
-  stdout: 'logs/tornado-{numproc}.log'
+      workset:
+        - numprocs: [8001, 8002, 8003, 8004]
+        - numprocs: [8501, 8502, 8503, 8504]
 
-  workset:
-    - numprocs: [8001, 8002, 8003, 8004]
-    - numprocs: [8501, 8502, 8503, 8504]
+      smoke_test:
+        - check_all_http_ports: numprocs
 
-  smoke_test:
-    - check_all_http_ports: numprocs
+      after_start:
+        - replace_file: [numprocs, 'example/nginx-tornado.conf.templ', 'example/nginx-tornado.conf']
+        - run_proc: ps auxw| grep nginx | grep master | grep -v grep | awk '{print $2}' | xargs kill -HUP
 
-  after_start:
-    - replace_file: [numprocs, 'example/nginx-tornado.conf.templ', 'example/nginx-tornado.conf']
-    - run_proc: ps auxw| grep nginx | grep master | grep -v grep | awk '{print $2}' | xargs kill -HUP
-```
+Then you can run `rolld` like this:
 
-then you can run rolld
+    rolld rolld.yml
 
-```
-rolld rolld.yml
-```
+When you want to restart your processes send a HUP signal to `rolld`
 
-when you want to restart your processes send a HUP signal to rolld
-
-```
-killall -HUP rolld
-```
+    killall -HUP rolld
 
 or
 
-```
-ps auxw | grep rolld | grep -v grep | awk '{print $2}' | xargs kill -HUP
-```
+    ps auxw | grep rolld | grep -v grep | awk '{print $2}' | xargs kill -HUP
 
 
-When
----------
+Who Should Use This?
+--------------------
 
-Always refer to your fav. application server (uwsgi, gunicorn, passenger etc.) they may have graceful restart built-in.
+Always refer to your application server documentation first (uwsgi, gunicorn, passenger etc.) they may have graceful restart built-in already.
 
-Also after configuring your app server, you can easily check if it does graceful loading like this
+If you are not sure if you need `rolld`, there is an easy way to figure it out. You can easily check if your application server does graceful loading by running `curl` every second:
 
-open a terminal and run curl every second, eg.
+    while curl --fail -s localhost:80 > /dev/null; do echo "passed"; sleep 1; done;
 
-```
-while curl --fail -s localhost:80 > /dev/null; do echo "passed"; sleep 1; done;
-```
-
-and then reload/restart your app. If it doesn't exit, then you are fine, else you might have a mis-configuration,
-or you might need rolld.
+And then reload/restart your application server. If it doesn't exit, then you are fine, else you need a solution like `rolld` to handle it for you.
 
 
+Credits
+-------
 
+`rolld` is brought to you by 
+[Aybars Badur](https://github.com/ybrs) and the [Hipo Team](http://hipolabs.com).
+
+
+License
+-------
+
+`rolld` is licensed under the terms of the Apache License, version 2.0. Please see the LICENSE file for full details.
